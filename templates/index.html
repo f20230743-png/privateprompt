@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PrivatePrompt — protect your prompt</title>
+  <link
+    rel="stylesheet"
+    type="text/css"
+    href="{{ url_for('static', filename='style.css', v=asset_version) }}"
+  >
+</head>
+<body>
+<main class="shell">
+  <header class="masthead">
+    <div class="masthead-copy">
+      <p class="eyebrow">PrivatePrompt · prototype</p>
+      <h1>Protect sensitive details before you share a prompt.</h1>
+      <p class="lede">
+        Emails, phone numbers and API-key-like strings are replaced with
+        reversible placeholders — locally, in memory.
+      </p>
+    </div>
+    <div class="status" role="status">
+      <span class="dot" aria-hidden="true"></span>
+      Demo mode · sanitized prompts only · 127.0.0.1
+    </div>
+  </header>
+
+  {% if message %}
+  <p class="notice" role="alert">{{ message }}</p>
+  {% endif %}
+
+  <section class="card" aria-labelledby="prompt-label">
+    <form method="post" action="{{ url_for('protect') }}" id="prompt-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label id="prompt-label" for="prompt">Your prompt</label>
+      <textarea
+        id="prompt"
+        name="prompt"
+        rows="9"
+        maxlength="{{ max_chars }}"
+        spellcheck="false"
+        placeholder="Paste a prompt that contains an email, phone number or API key…"
+      >{{ prompt }}</textarea>
+      <div class="actions">
+        <button class="primary" type="submit">Protect my data</button>
+        <button class="ghost" type="submit" formaction="{{ url_for('demo') }}">
+          Demo Mode (no API key)
+        </button>
+        <span class="hint">Offline templated reply. Nothing is written to disk.</span>
+      </div>
+    </form>
+  </section>
+
+  {% if sanitized is not none %}
+  <section class="results" aria-labelledby="results-title">
+    <div class="results-head">
+      <h2 id="results-title">Sanitized prompt</h2>
+      <button class="ghost" type="button" data-copy-target="sanitized-output">
+        Copy sanitized text
+      </button>
+    </div>
+
+    <div class="stats">
+      <div class="stat" data-kind="EMAIL">
+        <span class="stat-value">{{ counts['EMAIL'] }}</span>
+        <span class="stat-label">Emails</span>
+      </div>
+      <div class="stat" data-kind="PHONE">
+        <span class="stat-value">{{ counts['PHONE'] }}</span>
+        <span class="stat-label">Phone numbers</span>
+      </div>
+      <div class="stat" data-kind="API_KEY">
+        <span class="stat-value">{{ counts['API_KEY'] }}</span>
+        <span class="stat-label">API-key-like values</span>
+      </div>
+    </div>
+
+    <pre id="sanitized-output" class="preview" tabindex="0">{{ sanitized }}</pre>
+    <p class="copy-feedback" id="copy-feedback" role="status" aria-live="polite"></p>
+
+    <p class="warning" role="alert">
+      <strong>Detection is imperfect.</strong> Regex rules can miss values and
+      can occasionally over-match. Review the sanitized prompt before sharing
+      it — API-key formats vary by provider. Even sanitized text can reveal
+      context, so redaction is best-effort, not anonymity.
+    </p>
+
+    <div class="ai-actions">
+      <button
+        class="primary"
+        type="submit"
+        form="prompt-form"
+        formaction="{{ url_for('ask') }}"
+      >Ask AI (sanitized only)</button>
+      <span class="hint">
+        Re-sanitizes your prompt and sends only the sanitized text to OpenAI.
+        The reply is restored locally.
+      </span>
+    </div>
+
+    {% if ai_answer is not none %}
+    <div class="ai-block">
+      <div class="results-head">
+        <h2>
+          {% if simulated %}Simulated response <span class="muted">(demo)</span>
+          {% else %}AI response <span class="muted">(restored locally)</span>{% endif %}
+        </h2>
+        <button class="ghost" type="button" data-copy-target="ai-output">
+          Copy response
+        </button>
+      </div>
+      {% if simulated %}
+      <p class="demo-label" role="status">
+        Simulated response — no AI model was called.
+      </p>
+      {% endif %}
+      <pre id="ai-output" class="preview" tabindex="0">{{ ai_answer }}</pre>
+      <p class="copy-feedback" role="status" aria-live="polite"></p>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('clear') }}" class="clear-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="danger" type="submit">Clear data</button>
+      <span class="hint">Calls forget() and removes the preview and mapping.</span>
+    </form>
+  </section>
+  {% endif %}
+
+  <footer class="foot">
+    <p>
+      <strong>Privacy status:</strong> Demo Mode runs fully offline. Nothing
+      leaves this process until you choose <em>Ask AI</em>; then only the
+      sanitized prompt is sent to OpenAI. Original values and placeholder
+      mappings live in this Python process's memory only, and disappear when
+      you clear or restart.
+    </p>
+    <p class="muted">
+      The provider can still infer context from sanitized text. Prototype-grade
+      tool: not production-secure, and detection is best-effort.
+    </p>
+  </footer>
+</main>
+<script
+  type="text/javascript"
+  src="{{ url_for('static', filename='app.js', v=asset_version) }}"
+  defer
+></script>
+</body>
+</html>
